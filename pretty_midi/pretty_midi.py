@@ -16,6 +16,7 @@ import six
 import pathlib
 from heapq import merge
 
+from .constants import INSTRUMENT_MAP
 from .instrument import Instrument
 from .containers import (KeySignature, TimeSignature, Lyric, Note,
                          PitchBend, ControlChange, Text)
@@ -70,19 +71,22 @@ class PrettyMIDI(object):
         if mido_object is not None or midi_file is not None:
 
             if mido_object is not None and midi_file is not None:
-                raise ValueError("Either the midi_file or the mido_object argument must be provided, but not both.")
+                raise ValueError(
+                    "Either the midi_file or the mido_object argument must be provided, but not both.")
 
             if mido_object is not None:
                 if isinstance(mido_object, mido.MidiFile):
                     midi_data = mido_object
                 else:
-                    raise ValueError("Expected mido_object to be of type mido.MidiFile.")
+                    raise ValueError(
+                        "Expected mido_object to be of type mido.MidiFile.")
 
             if midi_file is not None:
                 # Load in the MIDI data using the midi module
                 if isinstance(midi_file, six.string_types) or isinstance(midi_file, pathlib.PurePath):
                     # If a string or path was given, pass it as the filename
-                    midi_data = mido.MidiFile(filename=midi_file, charset=charset)
+                    midi_data = mido.MidiFile(
+                        filename=midi_file, charset=charset)
                 else:
                     # Otherwise, try passing it in as a file pointer
                     midi_data = mido.MidiFile(file=midi_file, charset=charset)
@@ -108,7 +112,7 @@ class PrettyMIDI(object):
 
             # Populate the list of tempo changes (tick scales)
             self._load_tempo_changes(midi_data)
-          
+
             # Create list that maps ticks to time in seconds
             self._update_tick_to_time(max_tick)
 
@@ -239,8 +243,8 @@ class PrettyMIDI(object):
 
         # We merge the already sorted lists for every track, based on time
         self.lyrics = list(merge(*tracks_with_lyrics, key=lambda x: x.time))
-        self.text_events = list(merge(*tracks_with_text_events, key=lambda x: x.time))
-
+        self.text_events = list(
+            merge(*tracks_with_text_events, key=lambda x: x.time))
 
     def _update_tick_to_time(self, max_tick):
         """Creates ``self.__tick_to_time``, a class member array which maps
@@ -317,8 +321,11 @@ class PrettyMIDI(object):
             # If we are told to, create a new instrument and store it
             if create_new:
                 is_drum = (channel == 9)
+                # Use the program number to name the instrument
+                instrument_name = INSTRUMENT_MAP[program] if program < len(
+                    INSTRUMENT_MAP) else 'Unknown'
                 instrument = Instrument(
-                    program, is_drum, track_name_map[track_idx])
+                    program, is_drum, name=instrument_name)
                 # If any events appeared for this instrument before now,
                 # include them in the new instrument
                 if (channel, track) in stragglers:
@@ -332,7 +339,7 @@ class PrettyMIDI(object):
             # instrument
             else:
                 # Create a "straggler" instrument
-                instrument = Instrument(program, track_name_map[track_idx])
+                instrument = Instrument(program, name='Straggler')
                 # Note that stragglers ignores program number, because we want
                 # to store all events on a track which appear before the first
                 # note-on, regardless of program
@@ -990,7 +997,7 @@ class PrettyMIDI(object):
 
         return synthesized
 
-    def fluidsynth(self, fs=None, synthesizer=None, sfid=0, sf2_path=None, 
+    def fluidsynth(self, fs=None, synthesizer=None, sfid=0, sf2_path=None,
                    normalize=True):
         """Synthesize using fluidsynth.
 
@@ -1030,7 +1037,8 @@ class PrettyMIDI(object):
             warn("The parameter 'sf2_path' is deprecated, please use 'synthesizer' instead.",
                  DeprecationWarning, 2)
             if synthesizer is not None:
-                raise ValueError("sf2_path and synthesizer cannot both be supplied.")
+                raise ValueError(
+                    "sf2_path and synthesizer cannot both be supplied.")
             else:
                 synthesizer = sf2_path
 
@@ -1041,7 +1049,8 @@ class PrettyMIDI(object):
             return np.array([])
 
         # Create a fluidsynth instance if one wasn't provided
-        synthesizer, sfid, delete_synthesizer = get_fluidsynth_instance(synthesizer, sfid, fs)
+        synthesizer, sfid, delete_synthesizer = get_fluidsynth_instance(
+            synthesizer, sfid, fs)
 
         # Get synthesized waveform for each instrument
         waveforms = [i.fluidsynth(synthesizer=synthesizer, sfid=sfid)
@@ -1064,7 +1073,7 @@ class PrettyMIDI(object):
             # Normalize by the maximum absolute value of a 16-bit integer
             # to prevent clipping
             synthesized /= (len(self.instruments) * 2 ** 15)
-        
+
         return synthesized
 
     def tick_to_time(self, tick):
@@ -1365,7 +1374,7 @@ class PrettyMIDI(object):
         midi_end_time = self.get_end_time()
 
         # Enforce that start_time is non-negative and end_time is lower than
-        # the MIDI object's end time. 
+        # the MIDI object's end time.
         if start_time < 0.0:
             raise ValueError('start_time must be non-negative.')
         if end_time is None:
@@ -1377,9 +1386,9 @@ class PrettyMIDI(object):
 
         # Enforce that end_time is strictly higher than start_time
         if start_time >= end_time:
-            raise ValueError('end_time must be strictly higher than ' 
+            raise ValueError('end_time must be strictly higher than '
                              'start_time.')
-                             
+
         # Invoke self.adjust_times to perform the cropping.
         self.adjust_times([start_time, end_time], [start_time, end_time])
 
@@ -1425,7 +1434,7 @@ class PrettyMIDI(object):
                 'time_signature': lambda e: (2 * 256 * 256),
                 'key_signature': lambda e: (3 * 256 * 256),
                 'lyrics': lambda e: (4 * 256 * 256),
-                'text_events' :lambda e: (5 * 256 * 256),
+                'text_events': lambda e: (5 * 256 * 256),
                 'program_change': lambda e: (6 * 256 * 256),
                 'pitchwheel': lambda e: ((7 * 256 * 256) + e.pitch),
                 'control_change': lambda e: (
@@ -1447,7 +1456,8 @@ class PrettyMIDI(object):
             return event1.time - event2.time
 
         # Initialize output MIDI object
-        mid = mido.MidiFile(ticks_per_beat=self.resolution, charset=self._charset)
+        mid = mido.MidiFile(ticks_per_beat=self.resolution,
+                            charset=self._charset)
         # Create track 0 with timing information
         timing_track = mido.MidiTrack()
         # Add a default time signature only if there is not one at time 0.
